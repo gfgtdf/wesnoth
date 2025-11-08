@@ -171,6 +171,20 @@ private:
 	map_location loc_;
 };
 
+
+struct specials_coontext_t {
+	struct specials_combatant {
+		unit_const_ptr un;
+		attack_ptr at;
+		map_location loc;
+	};
+
+	specials_coontext_t(specials_combatant&& att, specials_combatant&& def);
+
+	abilities_combatant attacker;
+	abilities_combatant defender;
+};
+
 namespace unit_abilities
 {
 bool filter_base_matches(const config& cfg, int def);
