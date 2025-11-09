@@ -307,6 +307,12 @@ int find_direction(const map_location& loc, const map_location& from_loc, std::s
 	return 0;
 }
 
+/*
+ * @param self_attack the attack used by the unit/student
+ * @param other_attack the attack used by opponent of the unit.
+ * @param ab the ability/special checked
+ * @param whom determine if unit affected or not by special ability.
+ */
 bool ability_active_in_combat(const const_attack_ptr& self_attack,
 	const const_attack_ptr& other_attack,
 	const unit_ability_t& ab,
@@ -321,6 +327,7 @@ bool ability_active_in_combat(const const_attack_ptr& self_attack,
 	}
 };
 
+/// Helper function, to turn void retuning function into false retuning functions
 template<typename TFunc>
 bool default_false(const TFunc& f) {
 	if constexpr (std::is_same_v<decltype(f()), void>) {
@@ -1119,11 +1126,14 @@ void attack_type::weapon_specials_impl_self(
 	bool leader_bool)
 {
 	if(self){
-		for(const auto& p_ab : self->abilities()){
-			bool tag_checked = (!checking_tags.empty()) ? (checking_tags.count(p_ab->tag()) != 0) : true;
-			const bool active = tag_checked && check_self_abilities_impl(self_attack, other_attack, *p_ab, self, self_loc, whom, leader_bool);
-			add_name(temp_string, active, p_ab->cfg().get_or("name_affected", "name").str(), checking_name);
-		}
+		foreach_self_active_ability(*self, loc,
+			[&](const ability_ptr p_ab, const unit&) {
+				return !checking_tags.empty() ? checking_tags.count(p_ab->tag()) != 0 : true;
+			},
+			[&](const ability_ptr p_ab, const unit& u2) {
+				const bool active = ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
+				add_name(temp_string, active, p_ab->cfg().get_or("name_affected", "name").str(), checking_name);
+			});
 	}
 }
 
@@ -1140,7 +1150,7 @@ void attack_type::weapon_specials_impl_adj(
 	bool leader_bool)
 {
 	if(self){
-		foreach_distant_active_ability(this, loc,
+		foreach_distant_active_ability(*self, loc,
 			[&](const ability_ptr p_ab, const unit&) {
 				bool tag_checked = !checking_tags.empty() ? checking_tags.count(p_ab->tag()) != 0 : true;
 				bool default_bool = affect_adjacents == "affect_allies" ? true : false;
