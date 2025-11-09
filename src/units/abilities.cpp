@@ -307,6 +307,20 @@ int find_direction(const map_location& loc, const map_location& from_loc, std::s
 	return 0;
 }
 
+bool ability_active_in_combat(const const_attack_ptr& self_attack,
+	const const_attack_ptr& other_attack,
+	const unit_ability_t& ab,
+	AFFECTS whom)
+{
+	//TODO: fix this
+	if (ab.tag() == "leadership" || ab.tag() == "leadership") {
+		return self->ability_affects_weapon(ab, self_attack, false) && self->ability_affects_weapon(ab, other_attack, true));
+	}
+	else {
+		return special_active_impl(self_attack, other_attack, ab, whom, true))
+	}
+};
+
 template<typename TFunc>
 bool default_false(const TFunc& f) {
 	if constexpr (std::is_same_v<decltype(f()), void>) {
@@ -354,11 +368,11 @@ bool foreach_distant_active_ability(const unit& un, const map_location& loc, TCh
 	return false;
 }
 
+enum class loop_type_t { self_only, distant_only, both };
+
 template<typename TCheck, typename THandler>
-bool foreach_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
+bool foreach_self_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
 {
-	// Check that the unit has an ability of tag_name type which meets the conditions to be active.
-	// If so, return true.
 	for (const auto& p_ab : this->abilities(tag_name)) {
 		if (quick_check(*p_ab)) {
 			continue;
@@ -369,7 +383,16 @@ bool foreach_active_ability(const unit& un, const map_location& loc, TCheck&& qu
 			}
 		}
 	}
+}
 
+template<typename TCheck, typename THandler>
+bool foreach_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
+{
+	// Check that the unit has an ability of tag_name type which meets the conditions to be active.
+	// If so, return true.
+	if (foreach_self_active_ability(un, loc, quick_check, handler)) {
+		return true;
+	}
 	return foreach_distant_active_ability(un, loc, quick_check, handler);
 }
 
@@ -668,6 +691,8 @@ static void add_string_to_vector(std::vector<std::string>& image_list, const con
 std::vector<std::string> unit::halo_or_icon_abilities(const std::string& image_type) const
 {
 	std::vector<std::string> image_list;
+
+
 	for(const auto& p_ab : abilities()){
 		bool is_active = ability_active(*p_ab, loc_);
 		//Add halo/overlay to owner of ability if active and affect_self is true.
@@ -680,7 +705,7 @@ std::vector<std::string> unit::halo_or_icon_abilities(const std::string& image_t
 		}
 	}
 
-	foreach_distant_active_ability(this, loc,
+	foreach_distant_active_ability(*this, loc,
 		[&](const ability_ptr p_ab, const unit&) {
 			return !p_ab->cfg()[image_type + "_image"].str().empty();
 		},
@@ -1020,8 +1045,9 @@ std::string attack_type::describe_weapon_specials() const
 	// FIXME: clean this up...
 	std::string temp_string;
 	std::set<std::string> checking_name;
-	weapon_specials_impl_self(temp_string, self_, shared_from_this(), other_attack_, self_loc_, AFFECTS::SELF, checking_name);
-	weapon_specials_impl_adj(temp_string, self_, shared_from_this(), other_attack_, self_loc_, AFFECTS::SELF, checking_name, {}, "affect_allies");
+	const auto& checking_tags = abilities_list::all_weapon_tags();
+	weapon_specials_impl_self(temp_string, self_, shared_from_this(), other_attack_, self_loc_, AFFECTS::SELF, checking_name, checking_tags);
+	weapon_specials_impl_adj(temp_string, self_, shared_from_this(), other_attack_, self_loc_, AFFECTS::SELF, checking_name, checking_tags, "affect_allies");
 
 	if(!temp_string.empty()) {
 		special_names.push_back("\n" + std::move(temp_string));
@@ -1113,26 +1139,18 @@ void attack_type::weapon_specials_impl_adj(
 	const std::string& affect_adjacents,
 	bool leader_bool)
 {
-	const unit_map& units = get_unit_map();
 	if(self){
-		for(const unit& u : units) {
-			if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == self->underlying_id()) {
-				continue;
-			}
-			const map_location& from_loc = u.get_location();
-			std::size_t distance = distance_between(from_loc, self_loc);
-			if(distance > u.max_ability_radius()) {
-				continue;
-			}
-			int dir = find_direction(self_loc, from_loc, distance);
-			for(const auto& p_ab : u.abilities()) {
+		foreach_distant_active_ability(this, loc,
+			[&](const ability_ptr p_ab, const unit&) {
 				bool tag_checked = !checking_tags.empty() ? checking_tags.count(p_ab->tag()) != 0 : true;
 				bool default_bool = affect_adjacents == "affect_allies" ? true : false;
 				bool affect_allies = !affect_adjacents.empty() ? p_ab->cfg()[affect_adjacents].to_bool(default_bool) : true;
-				const bool active = tag_checked && check_adj_abilities_impl(self_attack, other_attack, *p_ab, self, u, distance, dir, self_loc, from_loc, whom, leader_bool) && affect_allies;
+				return tag_checked && affect_allies;
+			},
+			[&](const ability_ptr p_ab, const unit& u2) {
+				const bool active = ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
 				add_name(temp_string, active, p_ab->cfg().get_or("name_affected", "name").str(), checking_name);
-			}
-		}
+			});
 	}
 }
 
@@ -1592,29 +1610,14 @@ bool attack_type::has_ability_impl(
 	AFFECTS whom,
 	const std::string& special)
 {
-	for(const ability_ptr& p_ab : self->abilities(special)) {
-		if(check_self_abilities_impl(self_attack, other_attack, *p_ab, self, self_loc, whom)) {
-			return true;
-		}
-	}
-	const unit_map& units = get_unit_map();
-	for(const unit& u : units) {
-		if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == self->underlying_id() || !u.max_ability_radius_type(special)) {
-			continue;
-		}
-		const map_location& from_loc = u.get_location();
-		std::size_t distance = distance_between(from_loc, self_loc);
-		if(distance > u.max_ability_radius_type(special)) {
-			continue;
-		}
-		int dir = find_direction(self_loc, from_loc, distance);
-		for(const ability_ptr& p_ab : u.abilities(special)) {
-			if(check_adj_abilities_impl(self_attack, other_attack, *p_ab, self, u, distance, dir, self_loc, from_loc, whom)) {
-				return true;
-			}
-		}
-	}
-	return false;
+
+	return foreach_active_ability(*self, self_loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			return p_ab->tag() == tag_name;
+		},
+		[&](const ability_ptr p_ab, const unit& u_from) {
+			return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
+		});
 }
 
 /**
@@ -1676,35 +1679,27 @@ bool attack_type::special_distant_filtering_impl(
 	const std::set<std::string> filter_special = utils::split_set(filter["special_active"].str());
 	const std::set<std::string> filter_special_id =  utils::split_set(filter["special_id_active"].str());
 	const std::set<std::string> filter_special_type = utils::split_set(filter["special_type_active"].str());
-	const unit_map& units = get_unit_map();
 	bool check_adjacent = sub_filter ? filter["affect_adjacent"].to_bool(true) : true;
-	for(const auto& p_ab : self->abilities()) {
-		bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
-		if(special_check && check_self_abilities_impl(self_attack, other_attack, *p_ab, self, self_loc, whom, leader_bool)){
-			return true;
-		}
-	}
-	if(check_adjacent) {
-		for(const unit& u : units) {
-			if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == self->underlying_id()) {
-				continue;
-			}
-			const map_location& from_loc = u.get_location();
-			std::size_t distance = distance_between(from_loc, self_loc);
-			if(distance > u.max_ability_radius()) {
-				continue;
-			}
-			int dir = find_direction(self_loc, from_loc, distance);
 
-			for(const auto& p_ab : u.abilities()) {
-				bool special_check = sub_filter ? u.ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
-				if(special_check && check_adj_abilities_impl(self_attack, other_attack, *p_ab, self, u, distance, dir, self_loc, from_loc, whom, leader_bool)) {
-					return true;
-				}
-			}
-		}
+	if (!check_adjacent) {
+		return foreach_self_active_ability(*self, self_loc,
+			[&](const ability_ptr p_ab, const unit&) {
+				bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
+				return special_check;
+			},
+			[&](const ability_ptr p_ab, const unit& u_from) {
+				return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
+			});
 	}
-	return false;
+
+	return foreach_active_ability(*self, self_loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
+			return special_check;
+		},
+		[&](const ability_ptr p_ab, const unit& u_from) {
+			return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
+		});
 }
 
 bool attack_type::has_filter_special_or_ability(const config& filter, bool simple_check) const
