@@ -328,14 +328,14 @@ bool ability_active_in_combat(const const_attack_ptr& self_attack,
 };
 
 /// Helper function, to turn void retuning function into false retuning functions
-template<typename TFunc>
-bool default_false(const TFunc& f) {
-	if constexpr (std::is_same_v<decltype(f()), void>) {
-		f();
+template<typename TFunc, typename TArgs..>
+bool default_false(const TFunc& f,TArgs... args) {
+	if constexpr (std::is_same_v<decltype(f(args...)), void>) {
+		f(args...);
 		return false;
 	}
 	else {
-		return f();
+		return f(args...);
 	}
 }
 
@@ -392,6 +392,14 @@ bool foreach_self_active_ability(const unit& un, const map_location& loc, TCheck
 	}
 }
 
+/*
+ * execeutes a given function for active ability of @a unit, including
+ * abilitied thought by other units
+ * @param un the unit receiving the abilities
+ * @param loc the location we assume the unit to be at.
+ * @param quick_check a quick check that is exceuted before the ability tested
+ * @param handler the function that is called for each acive ability.
+ */
 template<typename TCheck, typename THandler>
 bool foreach_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
 {
