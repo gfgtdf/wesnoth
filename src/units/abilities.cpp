@@ -1572,46 +1572,6 @@ bool unit::get_adj_ability_bool(const unit_ability_t& ab, std::size_t dist, int 
 	return (affects_side(ab, side(), from.side()) && from.ability_active_impl(ab, from_loc) && ability_affects_adjacent(ab, dist, dir, loc, from));
 }
 
-bool unit::get_self_ability_bool_weapon(const unit_ability_t& ab, const map_location& loc, const const_attack_ptr& weapon, const const_attack_ptr& opp_weapon) const
-{
-	return (get_self_ability_bool(ab, loc) && ability_affects_weapon(ab, weapon, false) && ability_affects_weapon(ab, opp_weapon, true));
-}
-
-bool unit::get_adj_ability_bool_weapon(const unit_ability_t& ab, std::size_t dist, int dir, const map_location& loc, const unit& from, const map_location& from_loc, const const_attack_ptr& weapon, const const_attack_ptr& opp_weapon) const
-{
-	return (get_adj_ability_bool(ab, dist, dir, loc, from, from_loc) && ability_affects_weapon(ab, weapon, false) && ability_affects_weapon(ab, opp_weapon, true));
-}
-
-bool attack_type::check_self_abilities_impl(const const_attack_ptr& self_attack, const const_attack_ptr& other_attack, const unit_ability_t& ab, const unit_const_ptr& u, const map_location& loc, AFFECTS whom, bool leader_bool)
-{
-	if(ab.tag() == "leadership" && leader_bool) {
-		if(u->get_self_ability_bool_weapon(ab, loc, self_attack, other_attack)) {
-			return true;
-		}
-	}
-	if(abilities_list::all_weapon_tags().count(ab.tag()) != 0){
-		if(u->get_self_ability_bool(ab, loc) && special_active_impl(self_attack, other_attack, ab, whom)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-bool attack_type::check_adj_abilities_impl(const const_attack_ptr& self_attack, const const_attack_ptr& other_attack, const unit_ability_t& ab, const unit_const_ptr& u, const unit& from, std::size_t dist, int dir, const map_location& loc, const map_location& from_loc, AFFECTS whom, bool leader_bool)
-{
-	if(ab.tag() == "leadership" && leader_bool) {
-		if(u->get_adj_ability_bool_weapon(ab, dist, dir, loc, from, from_loc, self_attack, other_attack)) {
-			return true;
-		}
-	}
-	if(abilities_list::all_weapon_tags().count(ab.tag()) != 0) {
-		if(u->get_adj_ability_bool(ab, dist, dir, loc, from, from_loc) && special_active_impl(self_attack, other_attack, ab, whom)) {
-			return true;
-		}
-	}
-	return false;
-}
-
 bool attack_type::has_ability_impl(
 	const const_attack_ptr& self_attack,
 	const unit_const_ptr& self,
