@@ -1657,27 +1657,21 @@ bool attack_type::special_distant_filtering_impl(
 	const std::set<std::string> filter_special = utils::split_set(filter["special_active"].str());
 	const std::set<std::string> filter_special_id =  utils::split_set(filter["special_id_active"].str());
 	const std::set<std::string> filter_special_type = utils::split_set(filter["special_type_active"].str());
+
+	auto handler = [&](const ability_ptr p_ab, const unit& u_from) {
+		return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
+	};
+	auto quick_check = [&](const ability_ptr p_ab, const unit&) {
+		bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : p_ab->special_checking_helper(filter_special, filter_special_id, filter_special_type);
+		return special_check;
+	};
+
+
 	bool check_adjacent = sub_filter ? filter["affect_adjacent"].to_bool(true) : true;
-
 	if (!check_adjacent) {
-		return foreach_self_active_ability(*self, self_loc,
-			[&](const ability_ptr p_ab, const unit&) {
-				bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
-				return special_check;
-			},
-			[&](const ability_ptr p_ab, const unit& u_from) {
-				return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
-			});
+		return foreach_self_active_ability(*self, self_loc, quick_check, handler);
 	}
-
-	return foreach_active_ability(*self, self_loc,
-		[&](const ability_ptr p_ab, const unit&) {
-			bool special_check = sub_filter ? self->ability_matches_filter(*p_ab, filter) : special_checking(p_ab->id(), p_ab->tag(), filter_special, filter_special_id, filter_special_type);
-			return special_check;
-		},
-		[&](const ability_ptr p_ab, const unit& u_from) {
-			return ability_active_in_combat(self_attack, other_attack, *p_ab, whom);
-		});
+	return foreach_active_ability(*self, self_loc, quick_check, handler);
 }
 
 bool attack_type::has_filter_special_or_ability(const config& filter, bool simple_check) const
