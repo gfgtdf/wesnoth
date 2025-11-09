@@ -307,19 +307,20 @@ int find_direction(const map_location& loc, const map_location& from_loc, std::s
 	return 0;
 }
 
+template<typename TFunc>
+bool default_false(const TFunc& f) {
+	if constexpr (std::is_same_v<decltype(f()), void>) {
+		f();
+		return false;
+	}
+	else {
+		return f();
+	}
 }
 
-bool unit::get_ability_bool(const std::string& tag_name, const map_location& loc) const
+template<typename TCheck, typename THandler>
+bool foreach_distant_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
 {
-	// Check that the unit has an ability of tag_name type which meets the conditions to be active.
-	// If so, return true.
-	for (const auto& p_ab : this->abilities(tag_name)) {
-		if (get_self_ability_bool(*p_ab, loc))
-		{
-			return true;
-		}
-	}
-
 	// If the unit does not have abilities that match the criteria, check if adjacent units or elsewhere on the map have active abilities
 	// with the [affect_adjacent] subtag that could affect the unit.
 	const unit_map& units = get_unit_map();
@@ -328,66 +329,73 @@ bool unit::get_ability_bool(const std::string& tag_name, const map_location& loc
 	// (possession of an ability with [affect_adjacent] via a boolean variable, not incapacitated,
 	// different from the central unit, that the ability is of the right type, detailed verification of each ability),
 	// if so return true.
-	for(const unit& u : units) {
-		if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == underlying_id() || !u.max_ability_radius_type(tag_name)) {
+	for (const unit& u : units) {
+		if (!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == underlying_id() || !u.max_ability_radius_type(tag_name)) {
 			continue;
 		}
 		const map_location& from_loc = u.get_location();
 		std::size_t distance = distance_between(from_loc, loc);
-		if(distance > u.max_ability_radius_type(tag_name)) {
+		if (distance > u.max_ability_radius_type(tag_name)) {
 			continue;
 		}
 		int dir = find_direction(loc, from_loc, distance);
-		for(const auto& p_ab : u.abilities(tag_name)) {
-			if(get_adj_ability_bool(*p_ab, distance, dir, loc, u, from_loc)) {
+		for (const auto& p_ab : u.abilities(tag_name)) {
+			if (quick_check(*p_ab)) {
+				continue;
+			}
+			if (get_adj_ability_bool(*p_ab, distance, dir, loc, u, from_loc)) {
+				if (default_false(handler, p_ab, u)) {
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+template<typename TCheck, typename THandler>
+bool foreach_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
+{
+	// Check that the unit has an ability of tag_name type which meets the conditions to be active.
+	// If so, return true.
+	for (const auto& p_ab : this->abilities(tag_name)) {
+		if (quick_check(*p_ab)) {
+			continue;
+		}
+		if (get_self_ability_bool(*p_ab, loc)) {
+			if (default_false(handler, p_ab, un)) {
 				return true;
 			}
 		}
 	}
 
+	return foreach_distant_active_ability(un, loc, quick_check, handler);
+}
 
-	return false;
+}
+
+bool unit::get_ability_bool(const std::string& tag_name, const map_location& loc) const
+{
+	return foreach_active_ability(this, loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			return p_ab->tag() == tag_name;
+		},
+		[&](const ability_ptr p_ab, const unit&) {
+			return true;
+		});
 }
 
 active_ability_list unit::get_abilities(const std::string& tag_name, const map_location& loc) const
 {
 	active_ability_list res(loc_);
-
-	// Check that the unit has an ability of tag_name type which meets the conditions to be active.
-	// If so, add to active_ability_list.
-	for(const auto& p_ab : this->abilities(tag_name)) {
-		if (get_self_ability_bool(*p_ab, loc))
-		{
-			res.emplace_back(p_ab, loc, loc);
-		}
-	}
-
-	// If the unit does not have abilities that match the criteria, check if adjacent units or elsewhere on the map have active abilities
-	// with the [affect_adjacent] subtag that could affect the unit.
-	const unit_map& units = get_unit_map();
-
-	// Check for each unit present on the map that it corresponds to the criteria
-	// (possession of an ability with [affect_adjacent] via a boolean variable, not incapacitated,
-	// different from the central unit, that the ability is of the right type, detailed verification of each ability),
-	// If so, add to active_ability_list.
-	for(const unit& u : units) {
-		if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == underlying_id() || !u.max_ability_radius_type(tag_name)) {
-			continue;
-		}
-		const map_location& from_loc = u.get_location();
-		std::size_t distance = distance_between(from_loc, loc);
-		if(distance > u.max_ability_radius_type(tag_name)) {
-			continue;
-		}
-		int dir = find_direction(loc, from_loc, distance);
-		for(const auto& p_ab : u.abilities(tag_name)) {
-			if(get_adj_ability_bool(*p_ab, distance, dir, loc, u, from_loc)) {
-				res.emplace_back(p_ab, loc, from_loc);
-			}
-		}
-	}
-
-
+	foreach_active_ability(this, loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			return p_ab->tag() == tag_name;
+		},
+		[&](const ability_ptr p_ab, const unit& u2) {
+			res.emplace_back(p_ab, loc, u2.get_location());
+		});
 	return res;
 }
 
@@ -672,25 +680,14 @@ std::vector<std::string> unit::halo_or_icon_abilities(const std::string& image_t
 		}
 	}
 
-	const unit_map& units = get_unit_map();
+	foreach_distant_active_ability(this, loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			return !p_ab->cfg()[image_type + "_image"].str().empty();
+		},
+		[&](const ability_ptr p_ab, const unit& u2) {
+			add_string_to_vector(image_list, p_ab->cfg(), image_type + "_image");
+		});
 
-	for(const unit& u : units) {
-		if(!u.max_ability_radius_image() || u.incapacitated() || u.underlying_id() == underlying_id()) {
-			continue;
-		}
-		const map_location& from_loc = u.get_location();
-		std::size_t distance = distance_between(from_loc, loc_);
-		if(distance > u.max_ability_radius_image()) {
-			continue;
-		}
-		int dir = find_direction(loc_, from_loc, distance);
-		for(const auto& p_ab : u.abilities()) {
-			if(!p_ab->cfg()[image_type + "_image"].str().empty() && get_adj_ability_bool(*p_ab, distance, dir, loc_, u, from_loc))
-			{
-				add_string_to_vector(image_list, p_ab->cfg(), image_type + "_image");
-			}
-		}
-	}
 	//rearranges vector alphabetically when its size equals or exceeds two.
 	if(image_list.size() >= 2){
 		std::sort(image_list.begin(), image_list.end());
@@ -952,49 +949,26 @@ std::vector<attack_type::special_tooltip_info> attack_type::abilities_special_to
 	if(!self_) {
 		return res;
 	}
-	for(const auto& p_ab : self_->abilities()) {
-		if(self_->get_self_ability_bool(*p_ab, self_loc_) && special_tooltip_active(*p_ab)) {
-			bool active = !active_list || special_active(*p_ab, AFFECTS::SELF);
-			const std::string name = p_ab->cfg()["name_affected"];
-			const std::string desc = p_ab->cfg()["description_affected"];
-
-			if(name.empty() || checking_name.count(name) != 0) {
-				continue;
-			}
-			res.AGGREGATE_EMPLACE(name, desc);
-			checking_name.insert(name);
-			if(active_list) {
-				active_list->push_back(active);
-			}
-		}
-	}
-	for(const unit& u : get_unit_map()) {
-		if(!u.max_ability_radius() || u.incapacitated() || u.underlying_id() == self_->underlying_id()) {
-			continue;
-		}
-		const map_location& from_loc = u.get_location();
-		std::size_t distance = distance_between(from_loc, self_loc_);
-		if(distance > u.max_ability_radius()) {
-			continue;
-		}
-		int dir = find_direction(self_loc_, from_loc, distance);
-		for(const auto& p_ab : u.abilities()) {
-			if(self_->get_adj_ability_bool(*p_ab, distance, dir, self_loc_, u, from_loc) && special_tooltip_active(*p_ab)) {
-				bool active = !active_list || special_active(*p_ab, AFFECTS::SELF);
+	return foreach_active_ability(*self_, loc,
+		[&](const ability_ptr p_ab, const unit&) {
+			return true;
+		},
+		[&](const ability_ptr p_ab, const unit&) {
+			if (special_tooltip_active(*p_ab)) {
+				bool active = !active_list || special_active(*p_ab, AFFECT::SELF);
 				const std::string name = p_ab->cfg()["name_affected"];
 				const std::string desc = p_ab->cfg()["description_affected"];
 
-				if(name.empty() || checking_name.count(name) != 0) {
+				if (name.empty() || checking_name.count(name) != 0) {
 					continue;
 				}
 				res.AGGREGATE_EMPLACE(name, desc);
 				checking_name.insert(name);
-				if(active_list) {
+				if (active_list) {
 					active_list->push_back(active);
 				}
 			}
-		}
-	}
+		});
 	return res;
 }
 
