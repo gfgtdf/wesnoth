@@ -839,3 +839,62 @@ int attack_type::modified_chance_to_hit(int cth) const
 	cth = std::clamp(cth + accuracy_ - parry, 0, 100);
 	return composite_value(chance_to_hit_list, cth);
 }
+
+active_ability_list attack_type::get_specials_and_abilities(const std::string& special) const
+{
+	if (!context_) {
+		return context_->get_active_specials(*this, special);
+	} else {
+		auto ctx = specials_coontext_t::make({ nullptr, map_location(), shared_from_this()}, {}, true);
+		assert(context_);
+		return context_->get_active_specials(*this, special);
+	}
+}
+/**
+ * Returns whether or not @a *this has a special ability with a tag or id equal to
+ * @a special. the Check is for a special ability
+ * active in the current context (see set_specials_context), including
+ * specials obtained from the opponent's attack.
+ */
+bool attack_type::has_special_or_ability(const std::string& special) const
+{
+	if (!context_) {
+		return context_->has_active_special(*this, special);
+	}
+	else {
+		auto ctx = specials_coontext_t::make({ nullptr, map_location(), shared_from_this() }, {}, true);
+		assert(context_);
+		return context_->has_active_special(*this, special);
+	}
+}
+
+
+bool attack_type::has_filter_special_or_ability(const config& filter) const
+{
+	if (!context_) {
+		return context_->has_active_special_simple_filter(*this, filter);
+	}
+	else {
+		auto ctx = specials_coontext_t::make({ nullptr, map_location(), shared_from_this() }, {}, true);
+		assert(context_);
+		return context_->has_active_special_simple_filter(*this, filter);
+	}
+}
+
+bool attack_type::has_special_or_ability_with_filter(const config& filter) const
+{
+	if (!filter["active"].to_bool()) {
+		return utils::find_if(specials(), [&](const ability_ptr& p_ab) { return special_matches_filter(*p_ab, filter); });
+	}
+
+	if (!context_) {
+		return context_->has_active_special_matching_filter(*this, filter);
+	}
+	else {
+		auto ctx = specials_coontext_t::make({ nullptr, map_location(), shared_from_this() }, {}, true);
+		assert(context_);
+		return context_->has_active_special_matching_filter(*this, filter);
+	}
+
+}
+
