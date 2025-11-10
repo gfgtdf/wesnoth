@@ -775,6 +775,7 @@ static int attack_info(const reports::context& rc, const attack_type &at, config
 {
 	std::ostringstream str, tooltip;
 	int damage = 0;
+	const bool attacking = (u.side() == rc.screen().playing_team().side());
 
 	struct string_with_tooltip {
 		std::string str;
@@ -782,7 +783,7 @@ static int attack_info(const reports::context& rc, const attack_type &at, config
 	};
 
 	{
-		auto ctx = at.specials_context(u.shared_from_this(), hex, u.side() == rc.screen().playing_team().side());
+		auto ctx = specials_coontext_t::make({ u.shared_from_this(), hex, at.shared_from_this() }, { }, attacking);
 		int base_damage = at.damage();
 		double specials_damage = at.modified_damage();
 		int damage_multiplier = 100;
@@ -924,9 +925,10 @@ static int attack_info(const reports::context& rc, const attack_type &at, config
 				continue;
 			bool new_type = seen_types.insert(enemy.type_id()).second;
 			if (new_type) {
-				auto ctx = at.specials_context(u.shared_from_this(), enemy.shared_from_this(), hex, loc, u.side() == rc.screen().playing_team().side(), nullptr);
-				int resistance = enemy.resistance_against(at, false, loc, nullptr);
-				resistances[resistance].insert(enemy.type_name());
+				auto ctx = specials_coontext_t::make(
+					{ u.shared_from_this(), hex, at.shared_from_this() },
+					{ enemy.shared_from_this(), loc, nullptr },
+					attacking);
 			}
 		}
 
@@ -988,9 +990,8 @@ static int attack_info(const reports::context& rc, const attack_type &at, config
 
 	{
 		//If we have a second unit, do the 2-unit specials_context
-		bool attacking = (u.side() == rc.screen().playing_team().side());
-		auto ctx = (sec_u == nullptr) ? at.specials_context_for_listing(attacking) :
-						at.specials_context(u.shared_from_this(), sec_u->shared_from_this(), hex, sec_u->get_location(), attacking, std::move(sec_u_weapon));
+		auto ctx = (sec_u == nullptr) ? specials_coontext_t::make_for_listing({ u.shared_from_this(), hex, at.shared_from_this() }, attacking) :
+		specials_coontext_t::make({ u.shared_from_this(), hex, at.shared_from_this() }, { sec_u->shared_from_this(), sec_u->get_location(), sec_u_weapon }, attacking);
 
 		boost::dynamic_bitset<> active;
 		const auto &specials = at.special_tooltips(&active);
@@ -1028,10 +1029,9 @@ static int attack_info(const reports::context& rc, const attack_type &at, config
 	// 'abilities' version of special_tooltips is below.
 	{
 		//If we have a second unit, do the 2-unit specials_context
-		bool attacking = (u.side() == rc.screen().playing_team().side());
 		auto ctx = (sec_u == nullptr)
-	? at.specials_context(u.shared_from_this(), hex, attacking)
-	: at.specials_context(u.shared_from_this(), sec_u->shared_from_this(), hex, sec_u->get_location(), attacking, std::move(sec_u_weapon));
+			? specials_coontext_t::make({ u.shared_from_this(), hex, at.shared_from_this() }, { }, attacking)
+			: specials_coontext_t::make({ u.shared_from_this(), hex, at.shared_from_this() }, { sec_u->shared_from_this(), sec_u->get_location(), sec_u_weapon }, attacking);
 
 		boost::dynamic_bitset<> active;
 		auto specials = at.abilities_special_tooltips(&active);

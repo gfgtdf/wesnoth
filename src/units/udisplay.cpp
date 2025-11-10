@@ -626,12 +626,11 @@ void unit_attack(display * disp, game_board & board,
 	unit &defender = *def;
 	int def_hitpoints = defender.hitpoints();
 	const_attack_ptr weapon = attack.shared_from_this();
-	auto ctx = weapon->specials_context(attacker.shared_from_this(), defender.shared_from_this(), a, b, attacking, secondary_attack);
-	utils::optional<decltype(ctx)> opp_ctx;
 
-	if(secondary_attack) {
-		opp_ctx.emplace(secondary_attack->specials_context(defender.shared_from_this(), attacker.shared_from_this(), b, a, !attacking, weapon));
-	}
+	auto ctx = specials_coontext_t::make(
+		{ attacker.shared_from_this(), a, weapon },
+		{ defender.shared_from_this(), b, secondary_attack },
+		attacking);
 
 	att->set_facing(a.get_relative_dir(b));
 	def->set_facing(b.get_relative_dir(a));
