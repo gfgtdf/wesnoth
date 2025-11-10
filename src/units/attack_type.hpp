@@ -30,6 +30,7 @@
 
 class active_ability_list;
 class unit_type;
+class specials_coontext_t;
 
 namespace wfl {
 	class map_formula_callable;
@@ -85,15 +86,7 @@ public:
 		specials_ = unit_ability_t::cfg_to_vector(value, true);  set_changed(true);
 	}
 
-
-	// In unit_abilities.cpp:
-
-	/**
-	 * @return True iff the special @a special is active.
-	 * @param special The special being checked.
-	 */
-	bool has_special(const std::string& special) const;
-	active_ability_list get_specials(const std::string& special) const;
+	// In unit_abilities.cpp:s
 
 	std::vector<unit_ability_t::tooltip_info> special_tooltips(boost::dynamic_bitset<>* active_list = nullptr) const;
 	// This returns a list describing all active abilities in the current context, that have the name_affected= set,
@@ -131,8 +124,6 @@ public:
 	 * @param base_value The value modified or not by function.
 	 */
 	int composite_value(const active_ability_list& abil_list, int base_value) const;
-	/** Returns list for weapon like abilities for each ability type. */
-	active_ability_list get_weapon_ability(const std::string& ability) const;
 	/**
 	 * @param special the tag name to check for
 	 * @return list which contains get_weapon_ability and get_specials list for each ability type, with overwritten items removed
@@ -143,10 +134,10 @@ public:
 	 * @param special The special being checked.
 	 */
 	bool has_special_or_ability(const std::string& special) const;
-	/** check if special matche
-	 * @return True if special matche with filter(if 'active' filter is true, check if special active).
-	 * @param simple_check If true, check whether the unit has the special. Else, check whether the special is currently active.
-	 * @param filter contain attributes to check(special_id, special_type etc...).
+	/**
+	 * handles the special_(id/type_)active attributes in weapon filters.
+	 * @return True if a speical matching the filter was found.
+	 * @param filter contains attributes special_id_active, special_type_active, special_active
 	 */
 	bool has_filter_special_or_ability(const config& filter, bool simple_check = false) const;
 	/**
@@ -363,87 +354,14 @@ public:
 		AFFECTS whom
 	);
 
-	/** has_ability_impl : return an boolean value for checking of activities of abilities used like weapon
-	 * @return True if  @a special is active.
-	 * @param self_attack the attack used by unit who fight.
-	 * @param other_attack the attack used by opponent.
-	 * @param self the unit who fight.
-	 * @param self_loc location of @a self.
-	 * @param whom determine if unit affected or not by special ability.
-	 * @param special The special ability type who is being checked.
-	 */
-	static bool has_ability_impl(
-		const const_attack_ptr& self_attack,
-		const unit_const_ptr& self,
-		const map_location& self_loc,
-		const const_attack_ptr& other_attack,
-		AFFECTS whom,
-		const std::string& special);
-
-	/** special_distant_filtering_impl : return an boolean value if special matche with filter
-	 * @return True if the @a special is active.
-	 * @param self_attack the attack used by unit who fight.
-	 * @param other_attack the attack used by opponent.
-	 * @param self the unit who fight.
-	 * @param self_loc location of @a self.
-	 * @param whom determine if unit affected or not by special ability.
-	 * @param filter if special check with filter, return true.
-	 * @param sub_filter if true, check the attributes of [filter_special], else, check special(_id/type)(_active).
-	 */
-	static bool special_distant_filtering_impl(
-		const const_attack_ptr& self_attack,
-		const unit_const_ptr& self,
-		const map_location& self_loc,
-		const const_attack_ptr& other_attack,
-		AFFECTS whom,
-		const config & filter,
-		bool sub_filter);
-
 	// make more functions proivate after refactoring finished.
 private:
 
 	// Used via specials_context() to control which specials are
 	// considered active.
-	friend class specials_context_t;
-	mutable map_location self_loc_, other_loc_;
-	mutable unit_const_ptr self_;
-	mutable unit_const_ptr other_;
-	mutable bool is_attacker_;
-	mutable const_attack_ptr other_attack_;
-	mutable bool is_for_listing_ = false;
-public:
-	class specials_context_t {
-		std::shared_ptr<const attack_type> parent;
-		friend class attack_type;
-		/** Initialize weapon specials context for listing */
-		explicit specials_context_t(const attack_type& weapon, bool attacking);
-		/** Initialize weapon specials context for a single unit */
-		specials_context_t(const attack_type& weapon, const_attack_ptr other_weapon,
-			unit_const_ptr self, unit_const_ptr other,
-			const map_location& self_loc, const map_location& other_loc,
-			bool attacking);
-		/** Initialize weapon specials context for a pair of units */
-		specials_context_t(const attack_type& weapon, unit_const_ptr self, const map_location& loc, bool attacking);
-		specials_context_t(const specials_context_t&) = delete;
-		bool was_moved = false;
-	public:
-		// Destructor at least needs to be public for all this to work.
-		~specials_context_t();
-		specials_context_t(specials_context_t&&);
-	};
-	// Set up a specials context.
-	// Usage: auto ctx = weapon.specials_context(...);
-	specials_context_t specials_context(unit_const_ptr self, unit_const_ptr other,
-		const map_location& unit_loc, const map_location& other_loc,
-		bool attacking, const_attack_ptr other_attack) const {
-		return specials_context_t(*this, other_attack, self, other, unit_loc, other_loc, attacking);
-	}
-	specials_context_t specials_context(unit_const_ptr self, const map_location& loc, bool attacking = true) const {
-		return specials_context_t(*this, self, loc, attacking);
-	}
-	specials_context_t specials_context_for_listing(bool attacking = true) const {
-		return specials_context_t(*this, attacking);
-	}
+	friend class specials_coontext_t;
+	mutable specials_coontext_t* context_;
+
 	void set_changed(bool value)
 	{
 		changed_ = value;

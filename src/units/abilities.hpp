@@ -192,7 +192,7 @@ private:
 };
 
 
-struct specials_coontext_t {
+class specials_coontext_t {
 	struct specials_combatant {
 		unit_const_ptr un;
 		map_location loc;
@@ -203,6 +203,7 @@ struct specials_coontext_t {
 	specials_coontext_t(const specials_coontext_t&) = delete;
 
 	specials_coontext_t(specials_combatant&& att, specials_combatant&& def);
+	~specials_coontext_t();
 
 	specials_coontext_t make(unit_specials_combatant&& self, unit_specials_combatant&& other, bool attacking)
 	{
@@ -222,8 +223,26 @@ struct specials_coontext_t {
 	}
 
 
-	abilities_combatant attacker;
-	abilities_combatant defender;
+	specials_combatant attacker;
+	specials_combatant defender;
+	bool is_for_listing;
+
+	active_ability_list get_active_specials(const attack_type& at, const std::string& tag);
+
+	bool has_active_special(const attack_type& at, const std::string& tag);
+	bool has_active_special_simple_filter(const attack_type& at, const config& filter);
+	bool has_active_special_matching_filter(const attack_type& at, const config& filter);
+
+	bool is_special_active(attack_type& wep, unit_ability_t& ab, bool in_abilities_tag, AFFECTS whom);
+
+
+	struct special_tooltip_info { t_string name; t_string description; };
+	std::vector<special_tooltip_info> special_tooltips(const attack_type& at, boost::dynamic_bitset<>* active_list = nullptr) const;
+	std::vector<special_tooltip_info> abilities_special_tooltips(const attack_type& at, boost::dynamic_bitset<>* active_list) const;
+
+	std::string describe_weapon_specials(const attack_type& at) const;
+	std::string describe_weapon_specials_value(const attack_type& at, const std::set<std::string>& checking_tags) const;
+
 };
 
 namespace unit_abilities
