@@ -1440,11 +1440,10 @@ int mouse_handler::show_attack_dialog(const map_location& attacker_loc, const ma
 				range = string_table["range_" + range];
 			}
 
-			auto a_ctx = attacker_weapon.specials_context(attacker.get_shared_ptr(), defender.get_shared_ptr(),
-				attacker->get_location(), defender->get_location(), true, defender_stats.weapon);
-
-			auto d_ctx = defender_weapon.specials_context(defender.get_shared_ptr(), attacker.get_shared_ptr(),
-				defender->get_location(), attacker->get_location(), false, attacker_stats.weapon);
+			auto ctx = specials_coontext_t::make(
+				{ attacker.get_shared_ptr(), attacker->get_location(), attacker_stats.weapon },
+				{ defender.get_shared_ptr(), defender->get_location(), defender_stats.weapon },
+				true);
 
 			std::string types = attacker_weapon.effective_damage_type().first;
 			std::string attw_type = !(types).empty() ? types : attacker_weapon.type();

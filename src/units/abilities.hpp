@@ -195,11 +195,32 @@ private:
 struct specials_coontext_t {
 	struct specials_combatant {
 		unit_const_ptr un;
-		attack_ptr at;
 		map_location loc;
+		attack_ptr at;
 	};
 
+	specials_coontext_t(specials_coontext_t&&) = delete;
+	specials_coontext_t(const specials_coontext_t&) = delete;
+
 	specials_coontext_t(specials_combatant&& att, specials_combatant&& def);
+
+	specials_coontext_t make(unit_specials_combatant&& self, unit_specials_combatant&& other, bool attacking)
+	{
+		return specials_coontext_t{
+			{
+				attacking ? self : other,
+			} , {
+				attacking ? other : self,
+			}
+		};
+	}
+
+	specials_coontext_t make_for_listing(unit_specials_combatant&& self, bool attacking = true)
+	{
+		//TODO:
+		return make(self, {}, nullptr);
+	}
+
 
 	abilities_combatant attacker;
 	abilities_combatant defender;
