@@ -476,7 +476,7 @@ namespace {
 			return false;
 		}
 
-		res.emplace_back(
+		res.AGGREGATE_EMPLACE(
 			name,
 			desc,
 			ab.get_help_topic_id()
