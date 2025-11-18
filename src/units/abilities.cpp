@@ -391,6 +391,24 @@ bool default_false(const TFunc& f,TArgs... args) {
 	}
 }
 
+struct tag_check
+{
+	const std::string& tag;
+	bool operator(const std::string& othertag) {
+		return othertag == tag;
+	}
+};
+
+template<typename TCheck>
+size_t get_max_ability_radius(const unit& u, const TCheck& quick_check)
+{
+	if constexpr (std::is_same_v<std::decay_t<quick_check>, tag_check>) {
+		return u.max_ability_radius_type(tag);
+	} else {
+		return u.max_ability_radius();
+	}
+}
+
 template<typename TCheck, typename THandler>
 bool foreach_distant_active_ability(const unit& un, const map_location& loc, TCheck&& quick_check, THandler&& handler) const
 {
