@@ -468,7 +468,7 @@ active_ability_list unit::get_abilities_weapons(const std::string& tag_name, con
 	active_ability_list res = get_abilities(tag_name, loc);
 	utils::erase_if(res, [&](const active_ability& i) {
 		//If no weapon is given, assume the ability is active. this is used by ai code.
-		return (weapon || opp_weapon) && attack_type::special_active_impl(weapon, opp_weapon, i.ability(), unit_ability_t::affects_t::SELF);
+		return (weapon || opp_weapon) && !attack_type::special_active_impl(weapon, opp_weapon, i.ability(), unit_ability_t::affects_t::SELF);
 	});
 	return res;
 }
