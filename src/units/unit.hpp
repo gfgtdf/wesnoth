@@ -1756,7 +1756,10 @@ public:
 	 * @returns                   A list of quadruples consisting of (in order) id, base name,
 	 *                            male or female name as appropriate for the unit, and description.
 	 */
-	std::vector<unit_ability_t::tooltip_info> ability_tooltips() const;
+	std::vector<unit_ability_t::tooltip_info> ability_tooltips() const
+	{
+		return unit_ability_t::get_tooltip_infos(abilities());
+	}
 
 	/**
 	 * Gets the names and descriptions of this unit's abilities.

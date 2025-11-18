@@ -314,8 +314,24 @@ bool unit_ability_t::active_on_matches(bool student_is_attacker) const
 	return false;
 }
 
+std::vector<unit_ability_t::tooltip_info> unit_ability_t::get_tooltip_infos(const ability_vector& abs)
+{
+	std::vector<unit_ability_t::tooltip_info> res;
 
+	for (const auto& p_ab : abs) {
+		auto name = p_ab->get_name(!active, gender);
+		auto desc = p_ab->get_description(!active, gender);
+		if (!name.empty()) {
+			res.AGGREGATE_EMPLACE(
+				name,
+				desc,
+				ab.get_help_topic_id()
+			);
+		}
+	}
 
+	return res;
+}
 
 namespace {
 
@@ -535,18 +551,6 @@ namespace {
 		);
 		return true;
 	}
-}
-
-std::vector<unit_ability_t::tooltip_info> unit::ability_tooltips() const
-{
-	std::vector<unit_ability_t::tooltip_info> res;
-
-	for(const auto& p_ab : abilities())
-	{
-		add_ability_tooltip(*p_ab, gender_, res, true);
-	}
-
-	return res;
 }
 
 std::vector<unit_ability_t::tooltip_info> unit::ability_tooltips(boost::dynamic_bitset<>& active_list, const map_location& loc) const
