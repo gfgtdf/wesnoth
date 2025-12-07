@@ -377,20 +377,6 @@ active_ability_list unit::get_abilities(const std::string& tag_name, const map_l
 	return res;
 }
 
-
-std::vector<std::string> unit::get_ability_id_list() const
-{
-	std::vector<std::string> res;
-
-	for(const auto& p_ab : this->abilities()) {
-		std::string id = p_ab->id();
-		if (!id.empty())
-			res.push_back(std::move(id));
-	}
-	return res;
-}
-
-
 namespace {
 	/**
 	 * Adds a quadruple consisting of (in order) id, base name,

@@ -273,6 +273,18 @@ ability_vector unit_ability_t::filter_tag(const ability_vector& abs, const std::
 	}
 	return res;
 }
+std::vector<std::string> unit_ability_t::get_nonempty_ids(const ability_vector& vec)
+{
+	std::vector<std::string> res;
+
+	for (const auto& p_ab : vec) {
+		std::string id = p_ab->id();
+		if (!id.empty())
+			res.push_back(std::move(id));
+	}
+	return res;
+}
+
 
 ability_vector unit_ability_t::clone(const ability_vector& abs)
 {

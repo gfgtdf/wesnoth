@@ -91,6 +91,9 @@ public:
 
 
 	static ability_vector filter_tag(const ability_vector& vec, const std::string& tag);
+
+	static std::vector<std::string> get_nonempty_ids(const ability_vector& vec) const;
+
 	static ability_vector clone(const ability_vector& vec);
 
 	/**

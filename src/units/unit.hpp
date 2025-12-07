@@ -1737,7 +1737,10 @@ public:
 	ability_tooltips(boost::dynamic_bitset<>& active_list, const map_location& loc) const;
 
 	/** Get a list of all abilities by ID. */
-	std::vector<std::string> get_ability_id_list() const;
+	std::vector<std::string> get_ability_id_list() const
+	{
+		return unit_ability_t::get_nonempty_ids(abilities());
+	}
 
 	/**
 	 * Check if the unit has an ability of a specific type.
