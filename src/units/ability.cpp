@@ -19,9 +19,6 @@
  */
 
 #include "deprecation.hpp"
-#include "display.hpp"
-#include "display_context.hpp"
-#include "filter_context.hpp"
 #include "font/standard_colors.hpp"
 #include "formula/callable_objects.hpp"
 #include "formula/formula.hpp"
