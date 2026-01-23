@@ -1515,6 +1515,11 @@ void unit::set_state(const std::string& state, bool value)
 	}
 }
 
+bool unit::has_ability_type(const std::string& ability) const
+{
+	return utils::find_if(abilities(), [&](const ability_ptr& p_ab) { return p_ab->tag() == ability; });
+}
+
 bool unit::has_ability_by_id(const std::string& ability) const
 {
 	for (const ability_ptr& ab : abilities_) {

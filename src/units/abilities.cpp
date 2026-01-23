@@ -496,12 +496,6 @@ bool unit::ability_affects_self(const unit_ability_t& ab, const map_location& lo
 	return unit_filter(vconfig(*filter)).set_use_flat_tod(ab.tag() == "illuminates").matches(*this, loc);
 }
 
-bool unit::has_ability_type(const std::string& ability) const
-{
-	return !abilities(ability).empty();
-}
-
-
 std::vector<std::string> unit::halo_or_icon_abilities(const std::string& image_type) const
 {
 	std::string attr_image = image_type + "_image";
