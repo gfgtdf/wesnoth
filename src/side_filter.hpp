@@ -56,14 +56,14 @@ namespace side_filter_impl
 
 	struct side_filter_compound : public side_filter_base
 	{
-		side_filter_compound(const vconfig& cfg, const std::string& side_string);
+		side_filter_compound(const vconfig& cfg);
 
 		template<typename C, typename F>
 		void create_attribute(const config::attribute_value& c, C conv, F func);
 		template<typename F>
 		void create_child(const vconfig& c, F func);
 
-		void fill(const vconfig& cfg, const std::string& side_string);
+		void fill(const vconfig& cfg);
 
 		virtual bool matches(const side_filter_args& args) const override;
 		bool filter_impl(const side_filter_args& args) const;
@@ -79,7 +79,6 @@ public:
 
 	~side_filter();
 
-	side_filter(const std::string &side_string, const filter_context * fc, bool flat_tod = false);
 	side_filter(const vconfig &cfg, const filter_context * fc, bool flat_tod = false);
 
 	side_filter(const side_filter&) = default;
@@ -98,7 +97,6 @@ private:
 	const vconfig cfg_; //config contains WML for a Standard Side Filter
 
 	bool flat_;
-	std::string side_string_;
 
 	/** The filter context for this filter. It should be a pointer because otherwise the default ctor doesn't work */
 	const filter_context * fc_;

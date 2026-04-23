@@ -49,18 +49,8 @@ side_filter::~side_filter() {}
 side_filter::side_filter(const vconfig& cfg, const filter_context * fc,  bool flat_tod)
 	: cfg_(cfg)
 	, flat_(flat_tod)
-	, side_string_()
 	, fc_(fc)
-	, impl_(cfg_, side_string_)
-{
-}
-
-side_filter::side_filter(const std::string &side_string, const filter_context * fc, bool flat_tod)
-	: cfg_(vconfig::empty_vconfig())
-	, flat_(flat_tod)
-	, side_string_(side_string)
-	, fc_(fc)
-	, impl_(cfg_, side_string_)
+	, impl_(cfg_)
 {
 }
 
@@ -155,11 +145,11 @@ public:
 
 }
 
-side_filter_compound::side_filter_compound(const vconfig& cfg, const std::string& side_string)
+side_filter_compound::side_filter_compound(const vconfig& cfg)
 	: children_()
 	, cond_children_()
 {
-	fill(cfg, side_string);
+	fill(cfg);
 }
 
 bool side_filter_compound::matches(const side_filter_args& args) const
@@ -212,20 +202,9 @@ void side_filter_compound::create_attribute(const config::attribute_value& v, C 
 	}
 }
 
-void side_filter_compound::fill(const vconfig& cfg, const std::string& side_string)
+void side_filter_compound::fill(const vconfig& cfg)
 {
 	const config& literal = cfg.get_config();
-
-	// Handle side_string parameter
-	if(!side_string.empty()) {
-		create_attribute(config::attribute_value(side_string),
-			[](const config::attribute_value& c) { return c.str(); },
-			[](const std::string& str, const side_filter_args& args)
-			{
-				return check_side_number(args.t, str);
-			}
-		);
-	}
 
 	//optimisation
 	if (literal.empty()) { return; }

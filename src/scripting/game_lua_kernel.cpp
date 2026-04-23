@@ -197,25 +197,6 @@ void game_lua_kernel::lua_chat(const std::string& caption, const std::string& ms
 	}
 }
 
-/**
- * Gets a vector of sides from side= attribute in a given config node.
- * Promotes consistent behavior.
- */
-std::vector<int> game_lua_kernel::get_sides_vector(const vconfig& cfg)
-{
-	const config::attribute_value sides = cfg["side"];
-	const vconfig &ssf = cfg.child("filter_side");
-
-	if (!ssf.null()) {
-		if(!sides.empty()) { WRN_LUA << "ignoring duplicate side filter information (inline side=)"; }
-		side_filter filter(ssf, &game_state_);
-		return filter.get_teams();
-	}
-
-	side_filter filter(sides.str(), &game_state_);
-	return filter.get_teams();
-}
-
 scoped_lua_argument game_lua_kernel::push_wml_events_table(lua_State* L) const
 {
 	return {L, LUA_REGISTRYINDEX, EVENT_TABLE};

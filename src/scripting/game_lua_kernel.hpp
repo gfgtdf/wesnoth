@@ -194,7 +194,6 @@ class game_lua_kernel : public lua_kernel_base
 	//private helpers
 	std::string synced_state();
 	void lua_chat(const std::string& caption, const std::string& msg);
-	std::vector<int> get_sides_vector(const vconfig& cfg);
 
 	/**
 	 * Pushes the WML events table to the Lua stack.
